@@ -93,39 +93,60 @@
     (println "" next-field "" x " " y)
     (and (> x 0) (> y 0) (< x 9) (< y 9))))
 
+(defn move-to-field
+  [f next-field]
+  (if (valid-field next-field)
+    (cond (= next-field 'error) 'error
+          (nil? (get @board next-field)) (update-board-positions f next-field)
+          (not (nil? (get @board next-field))) (fight f next-field (get @board next-field))
+          :else 'error)
+    ()))
+
+(defn move-y
+  [f steps-x steps-y]
+  (let [x (:position-x (deref f)) y (+ steps-y (:position-y (deref f)))]
+    (println "xy" x y)
+    (-> [x y] make-keyword)))
+
+(defn move-x
+  [f steps-x steps-y]
+  (let [x (+ steps-x (:position-x (deref f))) y (:position-y (deref f))]
+    (-> [x y] make-keyword)))
+
+(defn move-xy
+  [f steps-x steps-y]
+  (let [x (+ steps-x (:position-x (deref f))) y (+ steps-y (:position-y (deref f)))]
+    (-> [x y] make-keyword)))
+
 (defn determine-next-field
-  [f way steps x y]
-  (let [next-field (cond (and (= 'y way) (> y 0)) (make-keyword [(:position-x (deref f)) (+ steps (:position-y (deref f)))])
-                         (and (= 'y way) (< y 0)) (make-keyword [(:position-x (deref f)) (- (:position-y (deref f)) steps)])
-                         (and (= 'x way) (> x 0)) (make-keyword [(+ steps (:position-x (deref f))) (:position-y (deref f))])
-                         (and (= 'x way) (< x 0)) (make-keyword [(- (:position-x (deref f)) steps) (:position-y (deref f))])
+  [f way steps-x steps-y]
+  (let [next-field (cond (and (= 'y way) (> steps-y 0)) (move-y f steps-x steps-y)
+                         (and (= 'y way) (< steps-y 0)) (move-y f steps-x steps-y)
+                         (and (= 'x way) (> steps-x 0)) (move-x f steps-x steps-y)
+                         (and (= 'x way) (< steps-x 0)) (move-x f steps-x steps-y)
+                         (and (= 'xy way) (> steps-x 0) (> steps-y 0)) (move-xy f steps-x steps-y)
+                         (and (= 'xy way) (< steps-x 0) (< steps-y 0)) (make-keyword [(-  (:position-x (deref f)) steps-x steps-y) (- (:position-y (deref f)) steps-x steps-y)])
                          :else 'error)]
-    (if (valid-field next-field)
-      (cond (= next-field 'error) 'error
-            (nil? (get @board next-field)) (update-board-positions f next-field)
-            (not (nil? (get @board next-field))) (fight f next-field (get @board next-field))
-            :else 'error)
-      ())))
+    (move-to-field f next-field)))
 
 ;; multi method magix
-(defmulti move (fn [f direction steps] [(:type (deref f)) (:color (deref f)) direction (type steps)]))
-(defmethod move ["pawn" "white" "down" Long] [f _ steps]
-  (determine-next-field f 'y steps 0 -1))
-(defmethod move ["pawn" "white" "up" Long] [f _ steps]
-  (determine-next-field f 'y steps 0 1))
-(defmethod move ["pawn" "white" "left" Long] [f _ steps]
-  (determine-next-field f 'x steps -1 0))
-(defmethod move ["pawn" "white" "right" Long] [f _ steps]
-  (determine-next-field f 'x steps 1 0))
-
-(defmethod move ["pawn" "black" "down" Long] [f _ steps]
-  (determine-next-field f 'y steps 0 1))
-(defmethod move ["pawn" "black" "up" Long] [f _ steps]
-  (determine-next-field f 'y steps 0 -1))
-(defmethod move ["pawn" "black" "left" Long] [f _ steps]
-  (determine-next-field f 'x steps 1 0))
-(defmethod move ["pawn" "black" "right" Long] [f _ steps]
-  (determine-next-field f 'x steps -1 0))
+(defmulti move (fn [f direction] [(:type (deref f)) (:color (deref f)) direction]))
+(defmethod move ["pawn" "white" "down"] [f _]
+  (determine-next-field f 'y 0 -1))
+(defmethod move ["pawn" "white" "up"] [f _]
+  (determine-next-field f 'y 0 1))
+(defmethod move ["pawn" "white" "left"] [f _]
+  (determine-next-field f 'x -1 0))
+(defmethod move ["pawn" "white" "right"] [f _]
+  (determine-next-field f 'x 1 0))
+(defmethod move ["pawn" "black" "down"] [f _]
+  (determine-next-field f 'y 0 1))
+(defmethod move ["pawn" "black" "up"] [f _]
+  (determine-next-field f 'y 0 -1))
+(defmethod move ["pawn" "black" "left"] [f _]
+  (determine-next-field f 'x 1 0))
+(defmethod move ["pawn" "black" "right"] [f _]
+  (determine-next-field f 'x -1 0))
 
 (defmethod move "king"  [f direction]
   (println "Move king")
@@ -139,15 +160,15 @@
   (place-figurine-on-board black-pawn)
   (println @board)
   (println (:type (deref white-pawn)))
-  (move white-pawn "up" 1)
-  (move white-pawn "up" 1)
-  (move white-pawn "right" 1)
-  (move white-pawn "down" 1)
-  (move black-pawn "up" 1)
-  (move black-pawn "up" 1)
-  (move black-pawn "left" 1)
-  (move black-pawn "up" 1)
-  (move black-pawn "up" 1)
+  (move white-pawn "up")
+  (move white-pawn "up")
+  (move white-pawn "right")
+  (move white-pawn "down")
+  (move black-pawn "up")
+  (move black-pawn "up")
+  (move black-pawn "left")
+  (move black-pawn "up")
+  (move black-pawn "up")
 
   (println "finished")
   (println @board))
