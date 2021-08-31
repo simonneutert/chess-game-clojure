@@ -1,6 +1,11 @@
 (ns chess-clojure.core
   (:gen-class))
 (require '[clojure.string :as str])
+(require '[chess-clojure.pawn :as pawn])
+;; (require '[chess-clojure.figurines :as figurines])
+
+;; please, regard java convention => "underscores"
+(import '[chess_clojure.figurines Figurine])
 
 (defn str->int
   [s]
@@ -32,14 +37,11 @@
 (def shadow-board (atom {}))
 (def board-killed-figurines (atom []))
 
-;; struct/map with magic -> a record
-(defrecord Figurine [color type position-x position-y])
-
 ;; place the figurines
-(def white-pawn (atom (->Figurine "white" "pawn" 1 2)))
-(def black-pawn (atom (->Figurine "black" "pawn" 1 7)))
+(def white-pawn (atom (pawn/make-record "white" 1 2)))
+(def black-pawn (atom (pawn/make-record "black" 1 7)))
 
-(defn show-move [^Figurine f direction]
+(defn show-move [f direction]
   (println "Move" (:type f) (:color f) "to" direction))
 
 (defmulti make-keyword (fn [x] [(type x)]))
@@ -85,8 +87,7 @@
   (swap! f merge {:position-x (extract-x new-position)})
   (swap! f merge {:position-y (extract-y new-position)})
   (swap! board merge {new-position (deref f)})
-  (next-round)
-  (println (deref f)))
+  (next-round))
 
 (defn fight
   [f new-position enemy]
@@ -107,6 +108,7 @@
           (not (nil? (get @board next-field))) (fight f next-field (get @board next-field))
           :else 'error)
     'error))
+
 
 (defn move-y
   [f _ steps-y]
@@ -137,27 +139,16 @@
     (move-to-field f next-field)))
 
 ;; multi method magix
-(defmulti move (fn [f direction] [(:type (deref f)) (:color (deref f)) direction]))
-(defmethod move ["pawn" "white" "down"] [f _]
-  (determine-next-field f 'y 0 -1))
-(defmethod move ["pawn" "white" "up"] [f _]
-  (determine-next-field f 'y 0 1))
-(defmethod move ["pawn" "white" "left"] [f _]
-  (determine-next-field f 'x -1 0))
-(defmethod move ["pawn" "white" "right"] [f _]
-  (determine-next-field f 'x 1 0))
-(defmethod move ["pawn" "black" "down"] [f _]
-  (determine-next-field f 'y 0 1))
-(defmethod move ["pawn" "black" "up"] [f _]
-  (determine-next-field f 'y 0 -1))
-(defmethod move ["pawn" "black" "left"] [f _]
-  (determine-next-field f 'x 1 0))
-(defmethod move ["pawn" "black" "right"] [f _]
-  (determine-next-field f 'x -1 0))
-
+(defmulti move (fn [f direction] [(:type (deref f)) (type direction)]))
+(defmethod move ["pawn" String] [f direction]
+  (let [[f way steps-x steps-y] (pawn/move f direction)]
+    (determine-next-field f way steps-x steps-y)))
 (defmethod move "king"  [f direction]
-  (println "Move king")
-  (show-move f direction))
+  (println "Move king"))
+(defmethod move :default
+  []
+  (throw (IllegalArgumentException. (str "do not know arguments"))))
+
 
 (defn -main
   [& args]
@@ -166,16 +157,20 @@
   (place-figurine-on-board white-pawn)
   (place-figurine-on-board black-pawn)
   (println @board)
-  (println (:type (deref white-pawn)))
   (move white-pawn "up")
   (move white-pawn "up")
   (move white-pawn "right")
   (move white-pawn "down")
+  (move white-pawn "up")
+  (move white-pawn "down")
+
+
   (move black-pawn "up")
   (move black-pawn "up")
   (move black-pawn "left")
   (move black-pawn "up")
   (move black-pawn "up")
+
 
   (println "finished")
   (println @board)
